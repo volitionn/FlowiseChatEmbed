@@ -937,7 +937,7 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
     setIsMessageStopping(false);
 
     // Stop all TTS when aborting message
-    stopAllTTSLocally();
+    stopAllTTS();
 
     setMessages((prevMessages) => {
       const allMessages = [...cloneDeep(prevMessages)];
@@ -1801,7 +1801,7 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
     setTTSAction(true);
 
     // Ensure complete cleanup before starting new TTS
-    stopAllTTSLocally();
+    stopAllTTS();
 
     setIsTTSLoading((prevState) => ({
       ...prevState,
@@ -1812,8 +1812,12 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
       const allMessages = [...cloneDeep(prevMessages)];
       const lastMessage = allMessages[allMessages.length - 1];
       if (lastMessage.type === 'userMessage') return allMessages;
-      if (lastMessage.id) return allMessages;
-      allMessages[allMessages.length - 1].id = data.chatMessageId;
+      const existingId = lastMessage.id || lastMessage.messageId;
+      if (!existingId) {
+        allMessages[allMessages.length - 1].id = data.chatMessageId;
+      } else if (!lastMessage.id) {
+        allMessages[allMessages.length - 1].id = existingId;
+      }
       return allMessages;
     });
 
@@ -1948,7 +1952,7 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
       const playingHandler = () => {
         setIsTTSLoading((prevState) => {
           const newState = { ...prevState };
-          newState[data.chatMessageId] = false;
+          delete newState[data.chatMessageId];
           return newState;
         });
         setIsTTSPlaying((prevState) => ({
@@ -2126,7 +2130,7 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
     cleanupTTSForMessage(messageId);
   };
 
-  const stopAllTTSLocally = () => {
+  const stopAllTTS = () => {
     const audioElements = ttsAudio();
     Object.keys(audioElements).forEach((messageId) => {
       if (audioElements[messageId]) {
@@ -2151,11 +2155,7 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
     setIsTTSLoading({});
   };
 
-  const stopAllTTS = async () => {
-    // First do local cleanup
-    stopAllTTSLocally();
-
-    // Then abort any active TTS requests on the server
+  const handleTTSAbortAll = async () => {
     const activeTTSMessages = Object.keys(isTTSLoading()).concat(Object.keys(isTTSPlaying()));
     for (const messageId of activeTTSMessages) {
       try {
@@ -2188,10 +2188,8 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
     setTTSAction(true);
 
     // Ensure complete cleanup before starting new TTS
-    await stopAllTTS();
-
-    // Wait for cleanup to complete
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await handleTTSAbortAll();
+    stopAllTTS();
 
     handleTTSStart({ chatMessageId: messageId, format: 'mp3' });
 
@@ -2265,7 +2263,6 @@ export const Bot = (botProps: BotProps & { class?: string }) => {
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('TTS request was aborted');
         cleanupTTSForMessage(messageId);
       } else {
         console.error('Error with TTS:', error);
