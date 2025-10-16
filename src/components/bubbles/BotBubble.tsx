@@ -323,8 +323,8 @@ export const BotBubble = (props: Props) => {
                 const isFileStorage = typeof item.data === 'string' && item.data.startsWith('FILE-STORAGE::');
                 return isFileStorage
                   ? `${props.apiHost}/api/v1/get-upload-file?chatflowId=${props.chatflowid}&chatId=${props.chatId}&fileName=${(
-                      item.data as string
-                    ).replace('FILE-STORAGE::', '')}`
+                    item.data as string
+                  ).replace('FILE-STORAGE::', '')}`
                   : (item.data as string);
               })()}
             />
@@ -510,7 +510,7 @@ export const BotBubble = (props: Props) => {
                   const URL = isValidURL(src.metadata.source);
                   return (
                     <SourceBubble
-                      pageContent={URL ? URL.pathname : src.pageContent}
+                      pageContent={src.metadata.filename}
                       metadata={src.metadata}
                       onSourceClick={() => {
                         if (URL) {
